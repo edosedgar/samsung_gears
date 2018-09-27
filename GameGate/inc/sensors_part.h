@@ -12,7 +12,7 @@
 #include "biomonitorc.h"
 #include <struct.h>
 
-#define HRM_MS 1000
+#define HRM_MS 2500
 #define ACC_MS 50
 
 // The main structure of HRM sensor

@@ -17,7 +17,7 @@
 #include <netdb.h>
 #include <net/if.h>
 
-#define HOST_ADDR "192.168.1.40"
+#define HOST_ADDR "172.20.10.6"
 #define SERVER_PORT 14342
 #define MSG_LEN 96
 

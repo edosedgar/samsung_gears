@@ -67,6 +67,7 @@ void on_sensor_event(sensor_h sensor, sensor_event_s *event, void *user_data)
     sensor_type_e type;
     sensor_get_type(sensor, &type);
     char a[100] = "";
+    static int count = 0;
     static char msg[MSG_LEN] = "";
     memset(&msg, 0x00, MSG_LEN);
     struct timeval ct;
@@ -90,13 +91,26 @@ void on_sensor_event(sensor_h sensor, sensor_event_s *event, void *user_data)
         acc_sensor_h acc_sh = (acc_sensor_h)user_data;
         appdata_h ad = acc_sh->ad;
 
-    	acc_sh->acc_x = event->values[0];
-    	acc_sh->acc_y = event->values[1];
-    	acc_sh->acc_z = event->values[2];
+        acc_sh->acc_x += event->values[0];
+        acc_sh->acc_y += event->values[1];
+        acc_sh->acc_z += event->values[2];
+
+        if (count != 3) {
+            count++;
+            break;
+        }
+
+        acc_sh->acc_x /= 4;
+        acc_sh->acc_y /= 4;
+        acc_sh->acc_z /= 4;
         gettimeofday(&ct, NULL);
     	sprintf(msg, FRMT_ACC, ct.tv_sec * 1000 + ct.tv_usec / 1000, acc_sh->acc_x,
     	             acc_sh->acc_y, acc_sh->acc_z);
     	conn_sent(ad, msg);
+    	count = 0;
+        acc_sh->acc_x = 0;
+        acc_sh->acc_y = 0;
+        acc_sh->acc_z = 0;
     	break;
     }
     default:
@@ -152,6 +166,9 @@ void acc_create_listener(acc_sensor_h acc_sh)
 	    return;
 	}
 
+	acc_sh->acc_x = 0;
+	acc_sh->acc_y = 0;
+	acc_sh->acc_z = 0;
 	sensor_listener_start(acc_sh->listener);
 	if (error != SENSOR_ERROR_NONE) {
 	    dlog_print(DLOG_ERROR, LOG_TAG, "sensor_listener_start error: %d", error);
