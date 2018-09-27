@@ -9,6 +9,8 @@ import sys
 import time
 
 status = 1
+excessing_hrm = 0
+excessing_acc = 0
 
 def recv_raw(connection):
     size = 96
@@ -22,6 +24,64 @@ def recv_raw(connection):
 def handle_close(evt):
     global status
     status = 0
+
+def is_vitals_ok():
+    return not (excessing_hrm or excessing_acc)
+
+an_acc_last_time = 0
+an_count_acc = 1
+an_sum_acc = 0
+an_acc_avg = 0
+an_acc_spike_count = 0
+def analytica_acc(acc):
+    global an_acc_last_time
+    global excessing_acc
+    global an_count_acc
+    global an_sum_acc
+    global an_acc_avg
+    global an_acc_spike_count
+
+    if (an_acc_last_time == acc['time']):
+        return;
+
+    an_sum_acc += acc['acc'][0]
+    an_sum_acc = 0
+    an_acc_avg = an_sum_acc/an_count_acc
+
+    if (abs(acc['acc'][0] - an_acc_avg) > 0.3):
+        an_acc_spike_count += 1
+
+    if (an_acc_spike_count > 3):
+        excessing_acc = 1
+        an_acc_spike_count = 0
+        print "Your motion is extremely active"
+    else:
+        excessing_acc = 0
+
+    an_acc_last_time = acc['time']
+
+an_hrm_ltime = 0
+an_count_hrm = 1
+an_sum_hrm = 0
+an_hrm_avg = 0
+an_hrm_spike_count = 0
+def analytica_hrm(hrm):
+    global an_hrm_ltime
+    global excessing_hrm
+    global an_count_hrm
+    global an_sum_hrm
+    global an_hrm_avg
+    global an_spike_count
+
+    if (an_hrm_ltime == hrm['time']):
+        return;
+
+    an_sum_hrm += hrm['hrm']
+    an_count_hrm += 1
+    an_hrm_avg = an_sum_hrm / an_count_hrm
+    print "Avg bpm ", an_hrm_avg
+
+    an_hrm_ltime = hrm['time']
 
 acc = {'time': 0, 'acc': [0, 0, 0]}
 hrm = {'time': 0, 'hrm': 0}
@@ -96,7 +156,7 @@ while True:
             ax2.clear()
             ax2.plot(p_time_hrm, p_hrm)
             plt.ylim(50, 130)
-            plt.title('Heart rate over the time over the time')
+            plt.title('Heart rate over the time')
             #plt.xticks(rotation=45, ha='right')
             plt.ylabel('Heart rate (bpm)')
             plt.xlabel('Time (sec)')
@@ -120,12 +180,13 @@ while True:
             #plt.xticks(rotation=45, ha='right')
             plt.ylabel('Acceleration (m/sec^2)')
             plt.xlabel('Time (sec)')
-            print acc
 
         if 'init_time' in json_data:
             init_time = json_data['init_time']
             continue
 
+        analytica_acc(acc)
+        analytica_hrm(hrm)
         plt.pause(0.005)
 
         if not status:
