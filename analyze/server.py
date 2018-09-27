@@ -6,18 +6,9 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import math
 import sys
+import time
 
-acc = {'time': 0, 'acc': 0}
-hrm = {'time': 0, 'hrm': 0}
-init_time = 0
-
-file_acc = "accel.csv"
-file_hrm = "hrm.csv"
-
-fig = plt.figure()
-ax = fig.add_subplot(1, 1, 1)
-xs = []
-ys = []
+status = 1
 
 def recv_raw(connection):
     size = 96
@@ -28,37 +19,30 @@ def recv_raw(connection):
         f_size = len(disp)
     return disp
 
-#===================================================================
-def animate(i, connection, xs, ys):
-    global init_time
-    global acc
-    global hrm
-    global ax
+def handle_close(evt):
+    global status
+    status = 0
 
-    data = "".join(recv_raw(connection)).rstrip("\0")
-    json_data = json.loads(data)
-    if 'heart_rate' in json_data:
-        hrm['time'] = json_data['time'] - init_time
-        hrm['hrm'] = json_data['heart_rate']
-    if 'accX' in json_data:
-        acc['time'] = json_data['time'] - init_time
-        acc['acc'] = math.sqrt(json_data['accX']**2 +
-                               json_data['accY']**2 +
-                               json_data['accZ']**2)
-        xs.append(acc['time'])
-        ys.append(acc['acc'])
+acc = {'time': 0, 'acc': [0, 0, 0]}
+hrm = {'time': 0, 'hrm': 0}
+init_time = 0
 
-    if 'init_time' in json_data:
-        init_time = json_data['init_time']
+file_acc = "accel.csv"
+file_hrm = "hrm.csv"
 
-    xs = xs[-100:]
-    ys = ys[-100:]
-    ax.clear()
-    ax.plot(xs, ys)
-    plt.title('Heart rate over time')
-    plt.xticks(rotation=45, ha='right')
-    plt.ylabel('Heart rate')
-    plt.xlabel('Time (ms)')
+# Figure rendering
+fig = plt.figure()
+fig.canvas.mpl_connect('close_event', handle_close)
+ax = fig.add_subplot(1, 1, 1)
+
+fig2 = plt.figure()
+fig2.canvas.mpl_connect('close_event', handle_close)
+ax2 = fig2.add_subplot(1, 1, 1)
+
+p_time_hrm = []
+p_time_acc = []
+p_hrm = []
+p_acc = []
 
 #================================================================
 # Figure out host IP address
@@ -88,9 +72,6 @@ while True:
 
 print "Waiting for a data"
 
-#ani = animation.FuncAnimation(fig, animate, fargs=(connection, xs, ys), interval=20)
-#plt.show()
-
 if (len(sys.argv) == 3):
     file_acc = sys.argv[2]
     file_hrm = sys.argv[1]
@@ -103,18 +84,52 @@ while True:
         data = "".join(recv_raw(connection)).rstrip("\0")
         json_data = json.loads(data)
         if 'heart_rate' in json_data:
-            hrm['time'] = json_data['time'] - init_time
+            hrm['time'] = (json_data['time'] - init_time)/1000.0
             hrm['hrm'] = json_data['heart_rate']
             f_hrm.write("%ld,%d\n" % (hrm['time'], hrm['hrm']))
+
+            p_time_hrm.append(acc['time'])
+            p_hrm.append(hrm['hrm'])
+            p_time_hrm = p_time_hrm[-100:]
+            p_hrm = p_hrm[-100:]
+            plt.figure(2)
+            ax2.clear()
+            ax2.plot(p_time_hrm, p_hrm)
+            plt.ylim(50, 130)
+            plt.title('Heart rate over the time over the time')
+            #plt.xticks(rotation=45, ha='right')
+            plt.ylabel('Heart rate (bpm)')
+            plt.xlabel('Time (sec)')
+
         if 'accX' in json_data:
-            acc['time'] = json_data['time'] - init_time
-            acc['acc'] = math.sqrt(json_data['accX']**2 +
-                                   json_data['accY']**2 +
-                                   json_data['accZ']**2)
+            acc['time'] = (json_data['time'] - init_time)/1000.0
+            acc['acc'][0] = json_data['accX']
+            acc['acc'][1] = json_data['accY']
+            acc['acc'][2] = json_data['accZ']
+            f_acc.write("%ld,%.3f,%.3f,%.3f\n" % (acc['time'], acc['acc'][0], acc['acc'][1], acc['acc'][2]))
+
+            p_time_acc.append(acc['time'])
+            p_acc.append(acc['acc'][0])
+            p_time_acc = p_time_acc[-50:]
+            p_acc = p_acc[-50:]
+            plt.figure(1)
+            ax.clear()
+            ax.plot(p_time_acc, p_acc)
+            plt.ylim(-1.5, 1.5)
+            plt.title('Acceleration over the time')
+            #plt.xticks(rotation=45, ha='right')
+            plt.ylabel('Acceleration (m/sec^2)')
+            plt.xlabel('Time (sec)')
             print acc
-            f_acc.write("%ld,%.3f\n" % (acc['time'], acc['acc']))
+
         if 'init_time' in json_data:
             init_time = json_data['init_time']
+            continue
+
+        plt.pause(0.005)
+
+        if not status:
+            raise ValueError('Window is closed')
 
     except KeyboardInterrupt:
         connection.close()
