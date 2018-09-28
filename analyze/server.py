@@ -146,7 +146,7 @@ while True:
         if 'heart_rate' in json_data:
             hrm['time'] = (json_data['time'] - init_time)/1000.0
             hrm['hrm'] = json_data['heart_rate']
-            f_hrm.write("%ld,%d\n" % (hrm['time'], hrm['hrm']))
+            f_hrm.write("%.2f,%d\n" % (hrm['time'], hrm['hrm']))
 
             p_time_hrm.append(acc['time'])
             p_hrm.append(hrm['hrm'])
@@ -166,7 +166,7 @@ while True:
             acc['acc'][0] = json_data['accX']
             acc['acc'][1] = json_data['accY']
             acc['acc'][2] = json_data['accZ']
-            f_acc.write("%ld,%.3f,%.3f,%.3f\n" % (acc['time'], acc['acc'][0], acc['acc'][1], acc['acc'][2]))
+            f_acc.write("%.3f,%.3f,%.3f,%.3f\n" % (acc['time'], acc['acc'][0], acc['acc'][1], acc['acc'][2]))
 
             p_time_acc.append(acc['time'])
             p_acc.append(acc['acc'][0])
